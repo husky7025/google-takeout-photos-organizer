@@ -1,0 +1,37 @@
+# Google Takeout Photo Organizer (웹 앱)
+
+구글 테이크아웃(Takeout)으로 내보낸 사진/동영상과 분리된 `.json` 메타데이터를 결합하고, 월별 폴더로 자동 정리해주는 로컬 웹 애플리케이션입니다.
+
+## ✨ 주요 기능
+1. **스마트 메타데이터 매칭 (99.6%+ 정확도)**:
+   - 구글 테이크아웃 특유의 긴 파일명 잘림, `(1)` 중복 번호 붙음 패턴(`photo.jpg.supplemental-metadata(1).json` 등) 자동 식별
+   - JSON 내 촬영일시(`photoTakenTime`), GPS 위도/경도/고도, 설명(Caption) 파싱
+2. **EXIF 메타데이터 주입 & 타임스탬프 동기화**:
+   - 내장/연동된 ExifTool을 통해 촬영일시 및 GPS 위치를 실제 사진/비디오 파일 안에 영구 기록
+   - 윈도우 파일 시스템 생성일자(`FileCreateDate`) 및 수정일자(`os.utime`) 동기화
+3. **라이브 포토 (Live Photo) 쌍 보존**:
+   - 아이폰 Live Photo 비디오(`.MOV`)와 사진(`.HEIC`/`.JPG`)을 식별하여 동일한 날짜 폴더로 함께 이동
+4. **확장자 누락 자동 복구 (Magic Number)**:
+   - 확장자가 누락된 파일(예: `IMG_2270`)의 파일 바이너리 헤더를 읽어 올바른 확장자 자동 복원
+5. **안전성 (복사 / 이동 선택 가능)**:
+   - 기본값은 원본 보존을 위한 **복사(Copy)** 모드이며, 필요 시 **이동(Move)** 모드 선택 가능
+   - 동일 폴더 내 중복 파일명 자동 넘버링 충돌 방지
+6. **실시간 모니터링 대시보드**:
+   - 웹소켓(WebSocket) 기반 실시간 진행률, 처리 현황, 처리 속도 및 상세 로그 제공
+   - 년/월별 폴더 분포 미리보기 지원
+
+---
+
+## 🚀 실행 방법
+
+### 방법 1. 더블 클릭 실행
+[start.bat](file:///D:/Downloads/google_takeout/Takeout/TakeoutOrganizer/start.bat) 파일을 더블 클릭하면 서버가 바로 실행됩니다.
+
+### 방법 2. 명령 프롬프트 / 터미널 실행
+```bash
+cd TakeoutOrganizer
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+웹 브라우저에서 아래 주소로 접속하세요:
+👉 **http://127.0.0.1:8000**

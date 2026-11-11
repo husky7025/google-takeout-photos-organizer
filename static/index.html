@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google 테이크아웃 사진/동영상 월별 정리 & 메타데이터 주입기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+    <!-- Navbar -->
+    <header class="border-b border-slate-800 bg-slate-950/70 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="p-2.5 bg-gradient-to-tr from-indigo-500 to-emerald-400 rounded-xl text-white shadow-lg shadow-indigo-500/20">
+                <i class="fa-solid fa-photo-film text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                    Google Takeout Organizer
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v1.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">구글 테이크아웃 JSON 메타데이터 병합 · 월별 자동 정리</p>
+            </div>
+        </div>
+        <div id="exiftool-badge" class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
+            <span class="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></span>
+            <span>ExifTool 확인 중...</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Panel: Settings & Control -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- Settings Card -->
+            <div class="bg-slate-800/80 rounded-2xl p-6 border border-slate-700/80 shadow-xl space-y-5">
+                <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> 작업 설정
+                </h2>
+
+                <!-- Source Dir -->
+                <div class="space-y-1.5">
+                    <label class="text-xs font-medium text-slate-300">원본 테이크아웃 폴더 경로</label>
+                    <div class="flex items-center gap-2">
+                        <input id="input-source-dir" type="text" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+                        <button id="btn-browse-source" type="button" title="폴더 찾아보기" class="px-3.5 py-2.5 bg-slate-700/80 hover:bg-slate-700 active:scale-95 text-slate-200 hover:text-white rounded-xl border border-slate-600 transition flex items-center justify-center">
+                            <i class="fa-solid fa-folder-open text-sm text-indigo-400"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Destination Dir -->
+                <div class="space-y-1.5">
+                    <label class="text-xs font-medium text-slate-300">정리된 파일 저장 폴더</label>
+                    <div class="flex items-center gap-2">
+                        <input id="input-output-dir" type="text" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+                        <button id="btn-browse-output" type="button" title="폴더 찾아보기" class="px-3.5 py-2.5 bg-slate-700/80 hover:bg-slate-700 active:scale-95 text-slate-200 hover:text-white rounded-xl border border-slate-600 transition flex items-center justify-center">
+                            <i class="fa-solid fa-folder-open text-sm text-emerald-400"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="space-y-3 pt-2 border-t border-slate-700/60">
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">동작 옵션</label>
+                    
+                    <div class="flex items-center justify-between p-3 bg-slate-900/60 rounded-xl border border-slate-700/50">
+                        <span class="text-xs text-slate-300">작업 모드</span>
+                        <div class="flex items-center gap-2 bg-slate-800 p-1 rounded-lg">
+                            <button id="btn-mode-copy" class="text-xs px-2.5 py-1 rounded-md font-medium transition bg-indigo-600 text-white shadow">복사 (Copy)</button>
+                            <button id="btn-mode-move" class="text-xs px-2.5 py-1 rounded-md font-medium transition text-slate-400 hover:text-slate-200">이동 (Move)</button>
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer">
+                        <input id="chk-exif" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-800 border-slate-600 cursor-pointer">
+                        <div class="text-xs">
+                            <p class="font-medium text-slate-200">EXIF 메타데이터 직접 주입</p>
+                            <p class="text-slate-400 text-[11px]">촬영일시, GPS 좌표 및 파일 생성일자 동기화</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer">
+                        <input id="chk-magic" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-800 border-slate-600 cursor-pointer">
+                        <div class="text-xs">
+                            <p class="font-medium text-slate-200">확장자 누락 자동 복구</p>
+                            <p class="text-slate-400 text-[11px]">바이너리 시그니처 감지로 확장자 자동 부여</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer">
+                        <input id="chk-livephoto" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-800 border-slate-600 cursor-pointer">
+                        <div class="text-xs">
+                            <p class="font-medium text-slate-200">라이브 포토 쌍 묶음 보존</p>
+                            <p class="text-slate-400 text-[11px]">아이폰 Live MOV 영상을 사진과 동일 월별 폴더로 배치</p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-3 space-y-2">
+                    <button id="btn-scan" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] transition rounded-xl font-medium text-sm text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>폴더 정밀 분석 (Scan)</span>
+                    </button>
+                    
+                    <button id="btn-start" disabled class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 active:scale-[0.99] transition rounded-xl font-medium text-sm text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-play"></i>
+                        <span>정리 및 메타데이터 주입 시작</span>
+                    </button>
+
+                    <button id="btn-cancel" class="hidden w-full py-2.5 bg-rose-600/80 hover:bg-rose-600 transition rounded-xl font-medium text-xs text-white flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-stop"></i>
+                        <span>작업 취소</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Preview, Stats & Live Console -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Summary Stats Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/80">
+                    <div class="text-xs text-slate-400 flex items-center justify-between">
+                        <span>미디어 파일</span>
+                        <i class="fa-solid fa-photo-film text-indigo-400"></i>
+                    </div>
+                    <div id="stat-media" class="text-xl font-bold text-slate-100 mt-2 font-mono">0</div>
+                    <div id="stat-total" class="text-[11px] text-slate-500 mt-0.5">전체 0개 중</div>
+                </div>
+
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/80">
+                    <div class="text-xs text-slate-400 flex items-center justify-between">
+                        <span>JSON 매칭</span>
+                        <i class="fa-solid fa-link text-emerald-400"></i>
+                    </div>
+                    <div id="stat-matched" class="text-xl font-bold text-emerald-400 mt-2 font-mono">0%</div>
+                    <div id="stat-matched-sub" class="text-[11px] text-slate-500 mt-0.5">0개 매칭됨</div>
+                </div>
+
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/80">
+                    <div class="text-xs text-slate-400 flex items-center justify-between">
+                        <span>라이브 포토 쌍</span>
+                        <i class="fa-solid fa-arrows-split-up-and-left text-amber-400"></i>
+                    </div>
+                    <div id="stat-live" class="text-xl font-bold text-amber-400 mt-2 font-mono">0</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">MOV 비디오 페어</div>
+                </div>
+
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/80">
+                    <div class="text-xs text-slate-400 flex items-center justify-between">
+                        <span>누락 확장자 복구</span>
+                        <i class="fa-solid fa-wrench text-sky-400"></i>
+                    </div>
+                    <div id="stat-repaired" class="text-xl font-bold text-sky-400 mt-2 font-mono">0</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">매직 넘버 감지</div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progress-container" class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/80 space-y-3">
+                <div class="flex items-center justify-between text-xs">
+                    <span id="progress-label" class="text-slate-300 font-medium flex items-center gap-2">
+                        <i class="fa-solid fa-spinner fa-spin text-indigo-400 hidden" id="spinner"></i>
+                        대기 중
+                    </span>
+                    <span id="progress-percentage" class="text-indigo-400 font-bold font-mono">0%</span>
+                </div>
+                <!-- Bar -->
+                <div class="w-full bg-slate-900 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-150" style="width: 0%"></div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                    <span id="progress-counts">처리: 0 / 0</span>
+                    <span id="progress-status" class="text-slate-400 truncate max-w-sm">준비 완료</span>
+                </div>
+            </div>
+
+            <!-- Target Monthly Preview Grid -->
+            <div class="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/80 space-y-3">
+                <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-indigo-400"></i> 월별 폴더 분류 미리보기
+                </h3>
+                <div id="folder-preview" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                    <div class="col-span-full py-6 text-center text-xs text-slate-500">
+                        스캔을 실행하면 분류될 년/월 폴더 목록이 여기에 표시됩니다.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Log Window -->
+            <div class="bg-slate-950 rounded-2xl p-4 border border-slate-800 shadow-inner space-y-2">
+                <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-800 text-slate-400">
+                    <span class="flex items-center gap-2 font-mono text-[11px]">
+                        <i class="fa-solid fa-terminal text-slate-500"></i> 처리 로그 스트림
+                    </span>
+                    <button id="btn-clear-log" class="hover:text-slate-200 text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800">지우기</button>
+                </div>
+                <div id="log-console" class="h-56 overflow-y-auto font-mono text-xs space-y-1 custom-scrollbar text-slate-300">
+                    <div class="text-slate-500">[System] 애플리케이션이 준비되었습니다. 상단에서 테이크아웃 폴더를 스캔하세요.</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
