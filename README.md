@@ -25,13 +25,17 @@
 ## 🚀 실행 방법
 
 ### 방법 1. 더블 클릭 실행
-[start.bat](file:///D:/Downloads/google_takeout/Takeout/TakeoutOrganizer/start.bat) 파일을 더블 클릭하면 서버가 바로 실행됩니다.
+`start.bat` 파일을 더블 클릭하면 서버가 바로 실행됩니다.
 
 ### 방법 2. 명령 프롬프트 / 터미널 실행
 ```bash
-cd TakeoutOrganizer
-python -m uvicorn app:app --host 127.0.0.1 --port 8000
+python run.py
 ```
 
 웹 브라우저에서 아래 주소로 접속하세요:
 👉 **http://127.0.0.1:8000**
+
+---
+
+## 📖 상세 사용 설명서
+더 자세한 단계별 사용법 및 FAQ는 **[사용 설명서 (MANUAL.md)](MANUAL.md)**를 참고하세요.
