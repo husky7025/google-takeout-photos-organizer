@@ -224,10 +224,16 @@ function handleProgressData(data) {
         const stats = data.stats;
         progressBar.style.width = `${stats.percent}%`;
         progressPercentage.innerText = `${stats.percent}%`;
-        progressCounts.innerText = `처리: ${stats.processed} / ${stats.total} (성공: ${stats.success}, 실패: ${stats.failed})`;
+        const skipText = stats.skipped ? `, 건너뜀: ${stats.skipped}` : '';
+        progressCounts.innerText = `처리: ${stats.processed} / ${stats.total} (성공: ${stats.success}${skipText}, 실패: ${stats.failed})`;
         progressStatus.innerText = item.filename;
 
-        if (stats.processed % 5 === 0 || item.status === 'error' || stats.processed === 1) {
+        if (item.status === 'skipped') {
+            // Log first skipped or periodic to avoid flooding
+            if (stats.skipped === 1 || stats.skipped % 50 === 0) {
+                appendLog(`[건너뜀] 이미 정리 완료된 파일 건너뛰는 중... (${stats.skipped}개 건너뜀)`, 'warn');
+            }
+        } else if (stats.processed % 5 === 0 || item.status === 'error' || stats.processed === 1) {
             const logType = item.status === 'error' ? 'error' : 'info';
             appendLog(`[${stats.processed}/${stats.total}] ${item.filename} -> ${item.status}`, logType);
         }
@@ -237,7 +243,8 @@ function handleProgressData(data) {
         progressPercentage.innerText = `100%`;
         progressLabel.innerText = "작업 완료!";
         spinner.classList.add('hidden');
-        appendLog(`[작업 종료] 총 ${data.stats.total}개 중 ${data.stats.success}개 성공 처리 완료.`, 'success');
+        const skipMsg = data.stats.skipped ? ` (이전 작업 건너뜀: ${data.stats.skipped}개)` : '';
+        appendLog(`[작업 종료] 총 ${data.stats.total}개 중 신규 ${data.stats.success}개 정리 완료${skipMsg}.`, 'success');
         btnStart.disabled = false;
         btnScan.disabled = false;
         btnCancel.classList.add('hidden');

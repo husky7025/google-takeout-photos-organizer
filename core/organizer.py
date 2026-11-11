@@ -52,14 +52,6 @@ class OrganizerTask:
 
             dest_path = os.path.join(target_folder, target_filename)
 
-            # Avoid filename collisions in target folder
-            if os.path.exists(dest_path) and os.path.abspath(dest_path) != os.path.abspath(item.original_path):
-                base_name, ext = os.path.splitext(target_filename)
-                counter = 1
-                while os.path.exists(dest_path):
-                    dest_path = os.path.join(target_folder, f"{base_name}_{counter}{ext}")
-                    counter += 1
-
             status_item = {
                 "index": idx + 1,
                 "total": total,
@@ -71,13 +63,43 @@ class OrganizerTask:
             }
 
             try:
-                # 2. Copy or Move
+                # 2. Check if already processed (Smart Resume / Skip duplicate)
+                if os.path.exists(dest_path) and os.path.abspath(dest_path) != os.path.abspath(item.original_path):
+                    # If file size matches, it was already organized in previous run
+                    if os.path.getsize(dest_path) == item.size:
+                        skipped_count += 1
+                        status_item["status"] = "skipped"
+                        status_item["message"] = f"이미 완료됨 (건너뜀): {os.path.basename(dest_path)}"
+                        if self.progress_callback:
+                            self.progress_callback({
+                                "event": "progress",
+                                "item": status_item,
+                                "stats": {
+                                    "total": total,
+                                    "processed": idx + 1,
+                                    "success": success_count,
+                                    "skipped": skipped_count,
+                                    "failed": failed_count,
+                                    "percent": status_item["percent"]
+                                }
+                            })
+                        continue
+
+                    # If file exists but size differs, avoid overwriting by renaming
+                    base_name, ext = os.path.splitext(target_filename)
+                    counter = 1
+                    while os.path.exists(dest_path):
+                        dest_path = os.path.join(target_folder, f"{base_name}_{counter}{ext}")
+                        counter += 1
+                    status_item["dest_path"] = dest_path
+
+                # 3. Copy or Move
                 if self.action == "move":
                     shutil.move(item.original_path, dest_path)
                 else:
                     shutil.copy2(item.original_path, dest_path)
 
-                # 3. Apply EXIF and Timestamp
+                # 4. Apply EXIF and Timestamp
                 if self.write_exif and item.timestamp:
                     meta = item.metadata
                     apply_metadata_to_file(
@@ -106,6 +128,7 @@ class OrganizerTask:
                         "total": total,
                         "processed": idx + 1,
                         "success": success_count,
+                        "skipped": skipped_count,
                         "failed": failed_count,
                         "percent": status_item["percent"]
                     }
@@ -118,6 +141,7 @@ class OrganizerTask:
                     "total": total,
                     "processed": total,
                     "success": success_count,
+                    "skipped": skipped_count,
                     "failed": failed_count,
                     "percent": 100
                 }
