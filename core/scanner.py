@@ -19,6 +19,28 @@ class MediaItem:
         self.target_month: str = "Unknown"
         self.is_live_photo_video = False
         self.live_photo_pair: Optional['MediaItem'] = None
+        self.file_hash: Optional[str] = None
+
+    def get_hash(self) -> str:
+        """Calculate fast partial or full hash of the file for duplicate detection."""
+        if self.file_hash:
+            return self.file_hash
+        import hashlib
+        h = hashlib.md5()
+        # For fast comparison, if file is huge, hash size + first 64KB + last 64KB
+        try:
+            with open(self.original_path, 'rb') as f:
+                if self.size <= 256 * 1024:
+                    h.update(f.read())
+                else:
+                    h.update(str(self.size).encode())
+                    h.update(f.read(64 * 1024))
+                    f.seek(-64 * 1024, os.SEEK_END)
+                    h.update(f.read(64 * 1024))
+            self.file_hash = h.hexdigest()
+        except Exception:
+            self.file_hash = f"{self.size}_{self.filename}"
+        return self.file_hash
 
     def to_dict(self):
         return {

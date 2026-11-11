@@ -13,6 +13,10 @@ const btnModeMove = document.getElementById('btn-mode-move');
 const chkExif = document.getElementById('chk-exif');
 const chkMagic = document.getElementById('chk-magic');
 const chkLivephoto = document.getElementById('chk-livephoto');
+const chkDedup = document.getElementById('chk-dedup');
+const chkStandardize = document.getElementById('chk-standardize');
+const selThreads = document.getElementById('sel-threads');
+const btnCleanup = document.getElementById('btn-cleanup');
 const btnScan = document.getElementById('btn-scan');
 const btnStart = document.getElementById('btn-start');
 const btnCancel = document.getElementById('btn-cancel');
@@ -224,16 +228,16 @@ function handleProgressData(data) {
         const stats = data.stats;
         progressBar.style.width = `${stats.percent}%`;
         progressPercentage.innerText = `${stats.percent}%`;
-        const skipText = stats.skipped ? `, 건너뜀: ${stats.skipped}` : '';
+        const skipText = (stats.skipped || stats.dedup_skipped) ? `, 건너뜀: ${(stats.skipped || 0) + (stats.dedup_skipped || 0)}` : '';
         progressCounts.innerText = `처리: ${stats.processed} / ${stats.total} (성공: ${stats.success}${skipText}, 실패: ${stats.failed})`;
         progressStatus.innerText = item.filename;
 
-        if (item.status === 'skipped') {
-            // Log first skipped or periodic to avoid flooding
-            if (stats.skipped === 1 || stats.skipped % 50 === 0) {
-                appendLog(`[건너뜀] 이미 정리 완료된 파일 건너뛰는 중... (${stats.skipped}개 건너뜀)`, 'warn');
+        if (item.status === 'skipped' || item.status === 'dedup_skipped') {
+            const totalSkipped = (stats.skipped || 0) + (stats.dedup_skipped || 0);
+            if (totalSkipped === 1 || totalSkipped % 50 === 0) {
+                appendLog(`[건너뜀] 중복 또는 완료 파일 건너뛰는 중... (${totalSkipped}개 누적)`, 'warn');
             }
-        } else if (stats.processed % 5 === 0 || item.status === 'error' || stats.processed === 1) {
+        } else if (stats.processed % 10 === 0 || item.status === 'error' || stats.processed === 1) {
             const logType = item.status === 'error' ? 'error' : 'info';
             appendLog(`[${stats.processed}/${stats.total}] ${item.filename} -> ${item.status}`, logType);
         }
@@ -301,7 +305,10 @@ btnStart.addEventListener('click', async () => {
             body: JSON.stringify({
                 output_dir: outputDir,
                 action: currentMode,
-                write_exif: chkExif.checked
+                write_exif: chkExif.checked,
+                standardize_name: chkStandardize.checked,
+                deduplicate: chkDedup.checked,
+                threads: parseInt(selThreads.value, 10)
             })
         });
         const data = await res.json();
@@ -319,6 +326,41 @@ btnStart.addEventListener('click', async () => {
 
     } catch (e) {
         appendLog(`[작업 시작 실패] ${e.message}`, 'error');
+    }
+});
+
+// Cleanup leftovers handler
+btnCleanup.addEventListener('click', async () => {
+    const src = inputSource.value.trim();
+    if (!src) {
+        alert("청소할 원본 폴더를 지정해주세요.");
+        return;
+    }
+    if (!confirm(`'${src}' 폴더 안의 잔여 .json 파일 및 빈 폴더들을 모두 정리하시겠습니까?\n(정리가 끝난 후 실행 권장)`)) {
+        return;
+    }
+
+    btnCleanup.disabled = true;
+    appendLog(`[청소 시작] 원본 잔여 파일 정리 중...`, 'system');
+
+    try {
+        const res = await fetch('/api/cleanup-leftovers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ source_dir: src })
+        });
+        const data = await res.json();
+        if (data.error) {
+            appendLog(`[청소 실패] ${data.error}`, 'error');
+            alert(data.error);
+        } else {
+            appendLog(`[청소 완료] 잔여 JSON ${data.deleted_jsons}개 삭제, 빈 폴더 ${data.deleted_dirs}개 정리 완료!`, 'success');
+            alert(`청소 완료:\n- 잔여 JSON 파일: ${data.deleted_jsons}개 삭제\n- 빈 폴더: ${data.deleted_dirs}개 삭제`);
+        }
+    } catch (e) {
+        appendLog(`[청소 에러] ${e.message}`, 'error');
+    } finally {
+        btnCleanup.disabled = false;
     }
 });
 

@@ -15,7 +15,7 @@ if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
 from core.scanner import scan_takeout_directory, MediaItem
-from core.organizer import OrganizerTask
+from core.organizer import OrganizerTask, cleanup_leftovers
 from core.exif_writer import get_exiftool_path
 
 app = FastAPI(title="Google Takeout Photo Organizer")
@@ -38,6 +38,12 @@ class StartRequest(BaseModel):
     output_dir: str
     action: str = "copy"
     write_exif: bool = True
+    standardize_name: bool = False
+    deduplicate: bool = True
+    threads: int = 4
+
+class CleanupRequest(BaseModel):
+    source_dir: str
 
 @app.on_event("startup")
 async def startup_event():
@@ -136,6 +142,9 @@ def api_start(req: StartRequest):
         output_dir=req.output_dir.strip(),
         action=req.action,
         write_exif=req.write_exif,
+        standardize_name=req.standardize_name,
+        deduplicate=req.deduplicate,
+        max_workers=req.threads,
         progress_callback=broadcast_progress
     )
     active_task = task
@@ -145,6 +154,17 @@ def api_start(req: StartRequest):
     thread.start()
 
     return {"job_id": job_id, "status": "started"}
+
+@app.post("/api/cleanup-leftovers")
+def api_cleanup_leftovers(req: CleanupRequest):
+    source = req.source_dir.strip()
+    if not os.path.isdir(source):
+        return JSONResponse(status_code=400, content={"error": f"폴더를 찾을 수 없습니다: {source}"})
+    try:
+        res = cleanup_leftovers(source)
+        return res
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/cancel")
 def api_cancel():

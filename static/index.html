@@ -87,6 +87,35 @@
                     </div>
 
                     <label class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer">
+                        <input id="chk-dedup" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-800 border-slate-600 cursor-pointer">
+                        <div class="text-xs">
+                            <p class="font-medium text-slate-200">내용 동일 사진 중복 제거 (MD5)</p>
+                            <p class="text-slate-400 text-[11px]">이름이 달라도 내용이 100% 같은 사진은 1장만 보존</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer">
+                        <input id="chk-standardize" type="checkbox" class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-800 border-slate-600 cursor-pointer">
+                        <div class="text-xs">
+                            <p class="font-medium text-slate-200">파일명 날짜 형식 통일 (권장)</p>
+                            <p class="text-slate-400 text-[11px]">예: <code class="text-indigo-300">20250522_143000_IMG_0001.jpg</code></p>
+                        </div>
+                    </label>
+
+                    <!-- Speed / Threads -->
+                    <div class="flex items-center justify-between p-3 bg-slate-900/60 rounded-xl border border-slate-700/50">
+                        <div class="text-xs">
+                            <span class="text-slate-200 font-medium">병렬 처리 속도 (멀티스레드)</span>
+                            <p class="text-slate-400 text-[11px]">대용량 파일 4배 고속 처리</p>
+                        </div>
+                        <select id="sel-threads" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2 py-1 text-slate-200 focus:outline-none font-mono">
+                            <option value="2">2 스레드</option>
+                            <option value="4" selected>4 스레드 (권장)</option>
+                            <option value="8">8 스레드 (초고속)</option>
+                        </select>
+                    </div>
+
+                    <label class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer">
                         <input id="chk-exif" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-800 border-slate-600 cursor-pointer">
                         <div class="text-xs">
                             <p class="font-medium text-slate-200">EXIF 메타데이터 직접 주입</p>
@@ -127,6 +156,14 @@
                         <i class="fa-solid fa-stop"></i>
                         <span>작업 취소</span>
                     </button>
+
+                    <!-- Clean leftovers button -->
+                    <div class="pt-2">
+                        <button id="btn-cleanup" type="button" class="w-full py-2.5 bg-slate-800 hover:bg-slate-750 active:scale-[0.99] border border-slate-700/80 rounded-xl text-xs text-slate-300 hover:text-slate-100 flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-broom text-amber-400"></i>
+                            <span>원본 잔여 JSON 및 빈 폴더 청소</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
