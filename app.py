@@ -63,21 +63,53 @@ def api_browse_folder(data: dict = None):
     initial = (data or {}).get("initial", "")
     folder_path = ""
 
-    def ask_folder():
-        nonlocal folder_path
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes('-topmost', 1)
-        res = filedialog.askdirectory(initialdir=initial or None, title="폴더 선택")
-        root.destroy()
-        folder_path = res
+    # Native Windows FolderBrowser via PowerShell (always shows up in foreground)
+    ps_cmd = f"""
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = '폴더를 선택하세요'
+    $dialog.ShowNewFolderButton = $true
+    if ('{initial}' -and (Test-Path '{initial}')) {{
+        $dialog.SelectedPath = '{initial}'
+    }}
+    $form = New-Object System.Windows.Forms.Form
+    $form.TopMost = $true
+    if ($dialog.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {{
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        Write-Output $dialog.SelectedPath
+    }}
+    """
+    try:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            timeout=120
+        )
+        if proc.returncode == 0:
+            out = proc.stdout.strip()
+            # In case multiple lines returned
+            lines = [l.strip() for l in out.splitlines() if l.strip()]
+            if lines:
+                folder_path = lines[-1]
+    except Exception as e:
+        print("Folder browse error:", e)
 
-    # Run GUI in a thread to keep FastAPI responsive
-    t = threading.Thread(target=ask_folder)
-    t.start()
-    t.join(timeout=60)
+    # Fallback to tkinter if powershell failed or empty
+    if not folder_path:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            res = filedialog.askdirectory(initialdir=initial or None, title="폴더 선택")
+            root.destroy()
+            folder_path = res or ""
+        except Exception:
+            pass
 
     if folder_path:
         folder_path = os.path.normpath(folder_path)

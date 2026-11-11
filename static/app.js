@@ -62,7 +62,10 @@ btnClearLog.addEventListener('click', () => {
 });
 
 // Folder Browse Handlers
-async function browseFolder(initialPath) {
+async function browseFolder(initialPath, btn) {
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sm text-indigo-400"></i>`;
     try {
         const res = await fetch('/api/browse-folder', {
             method: 'POST',
@@ -75,23 +78,22 @@ async function browseFolder(initialPath) {
         }
     } catch (e) {
         console.error('폴더 선택 창 호출 에러:', e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
     }
     return null;
 }
 
 btnBrowseSource.addEventListener('click', async () => {
-    btnBrowseSource.disabled = true;
-    const selected = await browseFolder(inputSource.value);
-    btnBrowseSource.disabled = false;
+    const selected = await browseFolder(inputSource.value, btnBrowseSource);
     if (selected) {
         inputSource.value = selected;
     }
 });
 
 btnBrowseOutput.addEventListener('click', async () => {
-    btnBrowseOutput.disabled = true;
-    const selected = await browseFolder(inputOutput.value);
-    btnBrowseOutput.disabled = false;
+    const selected = await browseFolder(inputOutput.value, btnBrowseOutput);
     if (selected) {
         inputOutput.value = selected;
     }
